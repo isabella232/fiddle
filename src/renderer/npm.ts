@@ -1,7 +1,8 @@
 import { EditorValues } from '../interfaces';
 import { exec } from '../utils/exec';
 
-const { builtinModules } = require('module');
+import { builtinModules } from 'module';
+import decomment from 'decomment';
 
 export type IPackageManager = 'npm' | 'yarn';
 
@@ -22,7 +23,7 @@ const ignoredModules: Array<string> = [
 ];
 
 /* regular expression to both match and extract module names */
-const requiregx = /^.*require\(['"](.*?)['"]\)/gm;
+const requiregx = /require\(['"](.*?)['"]\)/gm;
 
 /*
  Quick and dirty filter functions for filtering module names
@@ -84,7 +85,7 @@ export function findModulesInEditors(values: EditorValues) {
 }
 
 /**
- * Uses a simple regex to find `require()` statements in a string.
+ * Finds `require()` statements in a string.
  * Tries to exclude electron and Node built-ins as well as file-path
  * references. Also will try to install base packages of modules
  * that have a slash in them, for example: `lodash/fp` as the actual package
@@ -101,13 +102,13 @@ export function findModules(input: string): Array<string> {
   const modules: Array<string> = [];
   let match: RegExpMatchArray | null;
 
+  /* decomment code with the esprima parser */
+  const code = decomment(input);
+
   /* grab all global require matches in the text */
-  while ((match = requiregx.exec(input) || null)) {
-    // ensure commented-out requires aren't downloaded
-    if (!match[0].startsWith('//')) {
-      const mod = match[1];
-      modules.push(mod);
-    }
+  while ((match = requiregx.exec(code) || null)) {
+    const mod = match[1];
+    modules.push(mod);
   }
 
   /* map and reduce */
