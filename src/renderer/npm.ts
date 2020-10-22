@@ -2,7 +2,7 @@ import { EditorValues } from '../interfaces';
 import { exec } from '../utils/exec';
 
 import { builtinModules } from 'module';
-import decomment from 'decomment';
+import * as decomment from 'decomment';
 
 export type IPackageManager = 'npm' | 'yarn';
 

@@ -1,4 +1,8 @@
+import { mocked } from 'ts-jest/utils';
+import * as decomment from 'decomment';
+
 import {
+  findModules,
   findModulesInEditors,
   getIsPackageManagerInstalled,
   installModules,
@@ -6,7 +10,7 @@ import {
 } from '../../src/renderer/npm';
 import { exec } from '../../src/utils/exec';
 import { overridePlatform, resetPlatform } from '../utils';
-
+jest.mock('decomment');
 jest.mock('../../src/utils/exec');
 jest.mock('../../src/utils/import', () => ({
   fancyImport: async (_p: string) => {
@@ -15,15 +19,27 @@ jest.mock('../../src/utils/import', () => ({
 }));
 
 describe('npm', () => {
-  const mockMain = `
-    const say = require('say');
-
+  const mockBuiltins = `
     function hello() {
       const electron = require('electron');
       const originalFs = require('original-fs');
       const fs = require('fs');
       const privateModule = require('./hi');
     }
+  `;
+
+  const mockPackages = `
+    const cow = require('cow');
+    const say = require('say');
+  `;
+
+  const mockComments = `
+    // const cow = require('cow');
+    /* const say = require('say'); */
+    /**
+     * const hello = require('hello'); 
+     * const world = require('world'); 
+    */
   `;
 
   describe('getIsPackageManagerInstalled()', () => {
@@ -150,17 +166,39 @@ describe('npm', () => {
     });
   });
 
+  describe('findModules()', () => {
+    it('returns required modules in a JS file', () => {
+      mocked(decomment).mockReturnValue(mockPackages);
+      const modules = findModules(mockPackages);
+      expect(modules).toEqual(['cow', 'say']);
+    });
+
+    it('ignores node and electron builtins', () => {
+      mocked(decomment).mockReturnValue(mockBuiltins);
+      const modules = findModules(mockBuiltins);
+      expect(modules).toHaveLength(0);
+    });
+
+    it('ignores commented modules', () => {
+      mocked(decomment).mockReturnValue('');
+      const modules = findModules(mockComments);
+      expect(modules).toHaveLength(0);
+    });
+  });
+
   describe('findModulesInEditors()', () => {
-    it('finds modules, ignoring node and electron builtins', async () => {
-      const result = await findModulesInEditors({
+    it('installs modules across all JavaScript files only once', () => {
+      mocked(decomment).mockReturnValue(mockPackages);
+      const result = findModulesInEditors({
         html: '',
-        main: mockMain,
-        renderer: '',
-        preload: '',
+        main: mockPackages,
+        renderer: mockPackages,
+        preload: mockPackages,
         css: '',
       });
 
-      expect(result).toEqual(['say']);
+      expect(result).toHaveLength(2);
+      expect(result).toEqual(['cow', 'say']);
     });
   });
 
